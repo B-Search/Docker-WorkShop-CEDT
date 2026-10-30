@@ -1,51 +1,53 @@
 name: CI
 
-# TODO(step-6a): trigger the workflow on push targeting the `main` branch.
+# TODO(step-6a): Trigger on push to main branch
 on:
-    push:
-        branches: [???]
-
-env:
-  IMAGE_NAME: workshop-app
-  # After step-6d, your Docker Hub username will live in a secret.
-  # For local tagging below we reference ${{ secrets.DOCKERHUB_USERNAME }}.
+  push:
+    branches:
+      - main
 
 jobs:
   build-scan-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # TODO(step-6b): build the image locally with tag $IMAGE_NAME:${{ github.sha }}.
-      - name: Build image
-        run: ???
-
-      # scan the freshly built image with Trivy. Fail the job on CRITICAL.
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+      # TODO(step-6b): Build local image for scanning
+      - name: Build local image for scanning
+        uses: docker/build-push-action@v5
         with:
-            scan-type: image
-            image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            severity: CRITICAL
-            exit-code: '1'
-            ignore-unfixed: true
+          context: .
+          load: true
+          tags: workshop-app:${{ github.sha }}
 
-      # log in to Docker Hub using DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets.
+      # TODO(step-6c): Scan image with Trivy (Fail on CRITICAL)
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: workshop-app:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      # TODO(step-6d): Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # TODO(step-6e): tag and push the image as both :latest and :${{ github.sha }}.
-      - name: Tag and push
-      run: |
-          FULL=${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME
-          docker ??? $IMAGE_NAME:${{ github.sha }} $FULL:${{ github.sha }}
-          docker ??? $IMAGE_NAME:${{ github.sha }} $FULL:latest
-          docker ??? $FULL:${{ github.sha }}
-          docker ??? $FULL:latest
+      # TODO(step-6e): Push latest and commit SHA tags to Docker Hub
+      - name: Build and push image to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/workshop-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/workshop-app:${{ github.sha }}
