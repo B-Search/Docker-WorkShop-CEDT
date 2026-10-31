@@ -1,32 +1,20 @@
-# syntax=docker/dockerfile:1.7
-
-# TODO(step-4a): Stage 1 - Builder
-FROM node:20.11-slim AS builder
-
-# TODO(step-4b): Set working directory
+# Stage 1: build/install dependencies
+FROM node:20.11-slim AS build
 WORKDIR /app
-
-# TODO(step-4c): Copy package dependencies
 COPY app/package*.json ./
+RUN npm ci --omit=dev
+COPY app/ ./
 
-# TODO(step-4d): Install dependencies
-RUN npm ci
-
-# TODO(step-4e): Copy app source code
-COPY app/ .
-
-# TODO(step-4f): Stage 2 - Runner
-FROM node:20.11-slim AS runner
-
+# Stage 2: runtime
+FROM node:20.11-slim
+ENV NODE_ENV=production
 WORKDIR /app
-
-# Copy built code from builder stage
-COPY --from=builder /app ./
-
-# TODO(step-4g): Expose port & add HEALTHCHECK (Node.js one-liner for node:20.11-slim)
+COPY --from=build /app ./
+USER node
 EXPOSE 3000
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => res.statusCode === 200 ? process.exit(0) : process.exit(1))"
+# No curl/wget in slim, so use a Node one-liner
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+  CMD node -e "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-CMD ["npm", "start"]
+CMD ["node", "src/index.js"]
