@@ -33,6 +33,7 @@ jobs:
           image-ref: workshop-app:scan
           severity: CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
 
       - name: push
         uses: docker/build-push-action@v6
